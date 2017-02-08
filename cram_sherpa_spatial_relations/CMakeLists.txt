@@ -4,7 +4,25 @@ project(cram_sherpa_spatial_relations)
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
-find_package(catkin REQUIRED)
+find_package(catkin REQUIRED COMPONENTS
+ alexandria
+  cram_bullet_reasoning
+  cram_bullet_reasoning_belief_state
+  cram_bullet_reasoning_designators
+  cram_designators
+  cram_location_costmap
+  cram_occupancy_grid_costmap
+  cram_plan_library
+  cram_robot_pose_gaussian_costmap
+  cram_semantic_map_costmap
+  cram_semantic_map_designators
+  cram_spatial_relations_costmap
+  roslisp
+  message_generation
+  message_runtime
+  geometry_msgs
+  hmi_interpreter
+  gazebo_msgs)
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
@@ -98,9 +116,9 @@ find_package(catkin REQUIRED)
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES cram_sherpa_spatial_relations
-#  CATKIN_DEPENDS other_catkin_pkg
+ CATKIN_DEPENDS geometry_msgs message_generation message_runtime roscpp rospy std_msgs)
 #  DEPENDS system_lib
-)
+
 
 ###########
 ## Build ##
@@ -109,7 +127,9 @@ catkin_package(
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
 # include_directories(include)
-
+include_directories(
+  ${catkin_INCLUDE_DIRS}
+)
 ## Declare a C++ library
 # add_library(cram_sherpa_spatial_relations
 #   src/${PROJECT_NAME}/cram_sherpa_spatial_relations.cpp
