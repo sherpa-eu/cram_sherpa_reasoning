@@ -22,20 +22,22 @@
                                    (float (cdr (second liste)))))))
      
 (defun json-call-pose (name)
-  (format t "name ~a~%" name)
-  (if(json-prolog:check-connection)
-     (let*((newname (concatenate 'string "http://knowrob.org/kb/unreal_log.owl#" name))
-           (liste (first (cram-utilities:lazy-car
-                   (json-prolog:prolog
-                    `("current_object_pose" ,newname ?pose))))))
-       (cl-transforms:make-pose
-        (cl-transforms:make-3d-vector (float (second  liste))
-                                      (float (third liste))
-                                      (float (fourth liste)))
-        (cl-transforms:make-quaternion (float (sixth liste))
-                                       (float (seventh liste))
-                                       (float (eighth liste))
-                                       (float (fifth liste)))))))
+  (let((pose NIL))
+    (if(json-prolog:check-connection)
+       (let*((newname (concatenate 'string "http://knowrob.org/kb/unreal_log.owl#" name))
+             (liste (first (cram-utilities:lazy-car
+                            (json-prolog:prolog
+                             `("current_object_pose" ,newname ?pose))))))
+       (if (not (null liste))
+           (setf pose (cl-transforms:make-pose
+                       (cl-transforms:make-3d-vector (float (second  liste))
+                                                     (float (third liste))
+                                                     (float (fourth liste)))
+                       (cl-transforms:make-quaternion (float (sixth liste))
+                                                      (float (seventh liste))
+                                                      (float (eighth liste))
+                                                      (float (fifth liste))))))))
+    pose))
                                              
 
 (defun get-pose-by-call()
