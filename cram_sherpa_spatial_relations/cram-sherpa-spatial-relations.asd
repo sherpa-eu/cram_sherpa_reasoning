@@ -11,12 +11,12 @@
                cl-transforms
                cram-json-prolog
                cram-utilities
-               hmi_interpreter-srv
+               ;; hmi_interpreter-srv
                alexandria)
   :components
   ((:module "src"
     :components
     ((:file "package")
-     (:file "costmap-knowledge" :depends-on("package"))
+     ;; (:file "costmap-knowledge" :depends-on("package"))
      (:file "cost-functions" :depends-on ("package"))
      (:file "prolog" :depends-on ("package" "cost-functions"))))))

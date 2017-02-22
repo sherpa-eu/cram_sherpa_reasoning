@@ -20,31 +20,31 @@
       (declare (ignore x y))
       (list height)))
 
-(defun make-spatial-cost-function (location axis);; pred threshold)
-  (let* ((new-loc (cl-transforms:make-pose
-                   (cl-transforms:origin location)
-                   (cl-transforms:make-identity-rotation)))
-         (transformation (cl-transforms:pose->transform new-loc)) 
-         (world->location-transformation (cl-transforms:transform-inv transformation)))
-    (lambda (x y)
-      (let* ((point (cl-transforms:transform-point world->location-transformation
-                                                   (cl-transforms:make-3d-vector x y 0)))
-             (coord (ecase axis
-                      (:x (cl-transforms:x point))
-                      (:y (cl-transforms:y point))))
-             (mode (sqrt (+   (* (cl-transforms:x point) (cl-transforms:x point))
-                             (* (cl-transforms:y point) (cl-transforms:y point))))))
-        (if (funcall pred coord 0.0d0)
-            (if (> (abs (/ coord mode)) threshold)
-                (abs (/ coord mode))
-                0.0d0)
-            0.0d0)))))
+;; (defun make-spatial-cost-function (location axis);; pred threshold)
+;;   (let* ((new-loc (cl-transforms:make-pose
+;;                    (cl-transforms:origin location)
+;;                    (cl-transforms:make-identity-rotation)))
+;;          (transformation (cl-transforms:pose->transform new-loc)) 
+;;          (world->location-transformation (cl-transforms:transform-inv transformation)))
+;;     (lambda (x y)
+;;       (let* ((point (cl-transforms:transform-point world->location-transformation
+;;                                                    (cl-transforms:make-3d-vector x y 0)))
+;;              (coord (ecase axis
+;;                       (:x (cl-transforms:x point))
+;;                       (:y (cl-transforms:y point))))
+;;              (mode (sqrt (+   (* (cl-transforms:x point) (cl-transforms:x point))
+;;                              (* (cl-transforms:y point) (cl-transforms:y point))))))
+;;         (if (funcall pred coord 0.0d0)
+;;             (if (> (abs (/ coord mode)) threshold)
+;;                 (abs (/ coord mode))
+;;                 0.0d0)
+;;             0.0d0)))))
 
 (defun make-semantic-map-costmap (object)
   "Generates a semantic-map costmap for all `objects'. `objects' is a
 list of SEM-MAP-UTILS:SEMANTIC-MAP-GEOMs"
   (make-instance 'map-costmap-generator
-                 :generator-function (semantic-map-costmap::make-semantic-map-object-costmap-generator object)))
+    :generator-function (semantic-map-costmap::make-semantic-map-object-costmap-generator object)))
 
 (defun get-elem-depend-agent-pose (elemname &optional (viewpoint "busy_genius"))
   (let*((pose (json-call-pose elemname))
@@ -72,29 +72,29 @@ list of SEM-MAP-UTILS:SEMANTIC-MAP-GEOMs"
      :urdf-link-name "urdf-ei-daunt-nau-either"
      :pose pose)))
     
-(defun make-semantic-map-costmap-by-agent (objects &key invert (padding 0.0))
-  "Generates a semantic-map costmap for all `objects'. `objects' is a
-list of SEM-MAP-UTILS:SEMANTIC-MAP-GEOMs"
-  (let* ((objects (list (make-geom-object objects)))
-         (costmap-generators (mapcar (lambda (object)
-                                      (make-semantic-map-object-costmap-by-agent-generator
-                                       object :padding padding))
-                                    (cut:force-ll objects))))
-    (flet ((invert-matrix (matrix)
-             (declare (type cma:double-matrix matrix))
-             (dotimes (row (cma:height matrix) matrix)
-               (dotimes (column (cma:width matrix))
-                 (if (eql (aref matrix row column) 0.0d0)
-                     (setf (aref matrix row column) 1.0d0)
-                     (setf (aref matrix row column) 0.0d0)))))
-           (generator (costmap-metadata matrix)
-             (declare (type cma:double-matrix matrix))
-             (dolist (generator costmap-generators matrix)
-               (setf matrix (funcall generator costmap-metadata matrix)))))
-      (make-instance 'map-costmap-generator
-        :generator-function (if invert
-                                (alexandria:compose #'invert-matrix #'generator)
-                                #'generator)))))
+;; (defun make-semantic-map-costmap-by-agent (objects &key invert (padding 0.0))
+;;   "Generates a semantic-map costmap for all `objects'. `objects' is a
+;; list of SEM-MAP-UTILS:SEMANTIC-MAP-GEOMs"
+;;   (let* ((objects (list (make-geom-object objects)))
+;;          (costmap-generators (mapcar (lambda (object)
+;;                                       (make-semantic-map-object-costmap-by-agent-generator
+;;                                        object :padding padding))
+;;                                     (cut:force-ll objects))))
+;;     (flet ((invert-matrix (matrix)
+;;              (declare (type cma:double-matrix matrix))
+;;              (dotimes (row (cma:height matrix) matrix)
+;;                (dotimes (column (cma:width matrix))
+;;                  (if (eql (aref matrix row column) 0.0d0)
+;;                      (setf (aref matrix row column) 1.0d0)
+;;                      (setf (aref matrix row column) 0.0d0)))))
+;;            (generator (costmap-metadata matrix)
+;;              (declare (type cma:double-matrix matrix))
+;;              (dolist (generator costmap-generators matrix)
+;;                (setf matrix (funcall generator costmap-metadata matrix)))))
+;;       (make-instance 'map-costmap-generator
+;;         :generator-function (if invert
+;;                                 (alexandria:compose #'invert-matrix #'generator)
+;;                                 #'generator)))))
 
 ;; (defun make-semantic-map-object-costmap-by-agent-generator (object &key (padding 0.0))
 ;;   (declare (type sem-map-utils:semantic-map-geom object))
