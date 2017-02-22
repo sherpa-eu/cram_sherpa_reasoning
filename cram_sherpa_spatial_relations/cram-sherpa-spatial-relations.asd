@@ -6,14 +6,11 @@
                cram-prolog
                roslisp
                cram-semantic-map-costmap
-               ;;cram-bullet-reasoning
-               ;;cram-bullet-reasoning-belief-state
-               ;;cram-plan-library:
-               ;;  cram-bullet-reasoning-designators
-               ;; cram-beliefstate
+               cram-robot-pose-gaussian-costmap
                cl-tf
-               ;;cram-semantic-map-designators
-               ;;gazebo_msgs-srv
+               cl-transforms
+               cram-json-prolog
+               cram-utilities
                hmi_interpreter-srv
                alexandria)
   :components

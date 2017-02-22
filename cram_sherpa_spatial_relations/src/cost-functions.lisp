@@ -5,7 +5,8 @@
 
 (defun init-tf ()
   (setf *tf* (make-instance 'cl-tf:transform-listener))
-  (setf *pub* (cl-tf:make-transform-broadcaster)))
+  (setf *pub* (cl-tf:make-transform-broadcaster))
+  )
 
 (defun make-location-function (loc std-dev)
   (let ((loc (cl-transforms:origin loc)))
