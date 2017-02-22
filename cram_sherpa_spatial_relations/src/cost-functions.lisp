@@ -1,7 +1,7 @@
 (in-package :cram-sherpa-spatial-relations)
 
 (defvar *tf* NIL)
-(defvar *pub-init* NIL)
+(defvar *pub* NIL)
 
 (defun init-tf ()
   (setf *tf* (make-instance 'cl-tf:transform-listener))
@@ -20,7 +20,7 @@
       (declare (ignore x y))
       (list height)))
 
-(defun make-spatial-cost-function (location axis pred threshold)
+(defun make-spatial-cost-function (location axis);; pred threshold)
   (let* ((new-loc (cl-transforms:make-pose
                    (cl-transforms:origin location)
                    (cl-transforms:make-identity-rotation)))
@@ -40,6 +40,12 @@
                 0.0d0)
             0.0d0)))))
 
+(defun make-semantic-map-costmap (object)
+  "Generates a semantic-map costmap for all `objects'. `objects' is a
+list of SEM-MAP-UTILS:SEMANTIC-MAP-GEOMs"
+  (make-instance 'map-costmap-generator
+                 :generator-function (semantic-map-costmap::make-semantic-map-object-costmap-generator object)))
+
 (defun get-elem-depend-agent-pose (elemname &optional (viewpoint "busy_genius"))
   (let*((pose (json-call-pose elemname))
         (pub NIL))
@@ -49,17 +55,19 @@
     (format t "komisch ~a~%" (cl-transforms-stamped:make-transform-stamped "map" elemname (roslisp:ros-time) (cl-transforms:origin pose) (cl-transforms:orientation pose)))
       (format t "teeest123 ~a~%" *tf*)
     (setf pub (cl-tf:set-transform *tf* (cl-transforms-stamped:make-transform-stamped "map" elemname (roslisp:ros-time) (cl-transforms:origin pose) (cl-transforms:orientation pose))))
-      (format t "teeest123 ~a~%" *tf*)
+      (format t "teeest123---- ~a~%" *tf*)
     (cl-transforms-stamped:transform->pose (cl-tf:lookup-transform *tf* viewpoint elemname))))
 
 
 (defun make-geom-object (objname)
   (let((pose (json-call-pose objname))
+       (dim (json-call-dim objname))
        (type (get-elem-type objname)))
-    (cram-semantic-map-utils::make-instance
+  (cram-semantic-map-utils::make-instance
      'cram-semantic-map-utils:semantic-map-geom
      :type type
      :name objname
+     :dimensions dim
      :owl-name "owl-ei-daunt-nau"
      :urdf-link-name "urdf-ei-daunt-nau-either"
      :pose pose)))
@@ -88,50 +96,51 @@ list of SEM-MAP-UTILS:SEMANTIC-MAP-GEOMs"
                                 (alexandria:compose #'invert-matrix #'generator)
                                 #'generator)))))
 
-(defun make-semantic-map-object-costmap-by-agent-generator (object &key (padding 0.0))
-  (declare (type sem-map-utils:semantic-map-geom object))
-           (let* ((transform (cl-transforms:pose->transform  (cl-transforms:make-pose (cl-transforms:origin (get-elem-depend-agent-pose (sem-map-utils:name object)) (cl-transforms:make-identity-rotation)))))
-                  (dimensions (cl-transforms:v+
-                               (json-call-dim  (sem-map-utils:name object))
-                               (cl-transforms:make-3d-vector padding padding padding)))
-                  (pt->obj-transform (cl-transforms:transform-inv transform))
-                  (z-value (cl-transforms:z (cl-transforms:translation transform))))
-    (destructuring-bind ((obj-min obj-max)
-                         (local-min local-max))
-        (list (semantic-map-costmap::2d-object-bb dimensions transform)
-              (semantic-map-costmap::2d-object-bb dimensions))
-      (flet ((generator-function (semantic-map-costmap::costmap-metadata result)
-               (with-slots (origin-x origin-y resolution) costmap-metadata
-                 ;; For performance reasons, we first check if the point is
-                 ;; inside the object's bounding box in map and then check if it
-                 ;; really is inside the object.
-                 (let ((min-index-x (map-coordinate->array-index
-                                     (cl-transforms:x obj-min)
-                                     resolution origin-x))
-                       (max-index-x (map-coordinate->array-index
-                                     (cl-transforms:x obj-max)
-                                     resolution origin-x))
-                       (min-index-y (map-coordinate->array-index
-                                     (cl-transforms:y obj-min)
-                                     resolution origin-y))
-                       (max-index-y (map-coordinate->array-index
-                                     (cl-transforms:y obj-max)
-                                     resolution origin-y)))
-                   (loop for y-index from min-index-y to max-index-y
-                         for y from (- (cl-transforms:y obj-min) resolution)
-                           by resolution do
-                             (loop for x-index from min-index-x to max-index-x
-                                   for x from (- (cl-transforms:x obj-min) resolution)
-                                     by resolution do
-                                       (when (semantic-map-costmap::inside-aabb
-                                              local-min local-max
-                                              (cl-transforms:transform-point
-                                               pt->obj-transform
-                                               (cl-transforms:make-3d-vector
-                                                x y z-value)))
-                                         (setf (aref result y-index x-index) 1.0d0))))))
-               result))
-        #'generator-function))))
+;; (defun make-semantic-map-object-costmap-by-agent-generator (object &key (padding 0.0))
+;;   (declare (type sem-map-utils:semantic-map-geom object))
+;;   (let* ((transform (cl-transforms:pose->transform  (cl-transforms:make-pose (cl-transforms:origin (get-elem-depend-agent-pose (sem-map-utils:name object))) (cl-transforms:make-identity-rotation))))
+;;          (dimensions (cl-transforms:v+
+;;                       (json-call-dim  (sem-map-utils:name object))
+;;                       (cl-transforms:make-3d-vector padding padding padding)))
+;;          (pt->obj-transform (cl-transforms:transform-inv transform))
+;;          (z-value (cl-transforms:z (cl-transforms:translation transform))))
+;;     (destructuring-bind ((obj-min obj-max)
+;;                          (local-min local-max))
+;;         (list (semantic-map-costmap::2d-object-bb dimensions transform)
+;;               (semantic-map-costmap::2d-object-bb dimensions))
+;;       (flet ((generator-function (sherpa-metadata result)
+;;                (with-slots (origin-x origin-y resolution) sherpa-metadata
+;;                  ;; For performance reasons, we first check if the point is
+;;                  ;; inside the object's bounding box in map and then check if it
+;;                  ;; really is inside the object.
+;;                  (let ((min-index-x (map-coordinate->array-index
+;;                                      (cl-transforms:x obj-min)
+;;                                      resolution origin-x))
+;;                        (max-index-x (map-coordinate->array-index
+;;                                      (cl-transforms:x obj-max)
+;;                                      resolution origin-x))
+;;                        (min-index-y (map-coordinate->array-index
+;;                                      (cl-transforms:y obj-min)
+;;                                      resolution origin-y))
+;;                        (max-index-y (map-coordinate->array-index
+;;                                      (cl-transforms:y obj-max)
+;;                                      resolution origin-y)))
+;;                    (format t "agent-gesadasdnerator~%")
+;;                    (loop for y-index from min-index-y to max-index-y
+;;                          for y from (- (cl-transforms:y obj-min) resolution)
+;;                          by resolution do
+;;                            (loop for x-index from min-index-x to max-index-x
+;;                                  for x from (- (cl-transforms:x obj-min) resolution)
+;;                                  by resolution do
+;;                                    (when (semantic-map-costmap::inside-aabb
+;;                                           local-min local-max
+;;                                           (cl-transforms:transform-point
+;;                                            pt->obj-transform
+;;                                            (cl-transforms:make-3d-vector
+;;                                             x y z-value)))
+;;                                      (setf (aref result y-index x-index) 1.0d0))))))
+;;                result))
+;;         #'generator-function))))
 
 
 (defun get-elem-type (name)
