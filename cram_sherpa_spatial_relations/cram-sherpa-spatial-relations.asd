@@ -6,14 +6,14 @@
                cram-prolog
                roslisp
                cram-semantic-map-costmap
-               cram-bullet-reasoning
-               cram-bullet-reasoning-belief-state
-               cram-plan-library
-               cram-bullet-reasoning-designators
-               cram-beliefstate
+               ;;cram-bullet-reasoning
+               ;;cram-bullet-reasoning-belief-state
+               ;;cram-plan-library:
+               ;;  cram-bullet-reasoning-designators
+               ;; cram-beliefstate
                cl-tf
-               cram-semantic-map-designators
-               gazebo_msgs-srv
+               ;;cram-semantic-map-designators
+               ;;gazebo_msgs-srv
                hmi_interpreter-srv
                alexandria)
   :components
