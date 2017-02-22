@@ -11,14 +11,14 @@
 (defmethod costmap-generator-name->score ((name range-generator)) 2)
 (defmethod costmap-generator-name->score ((name (eql 'semantic-map-free-space))) 11)
 
-(defvar *location-costmap-publisher* nil)
-(defvar *marker-publisher* nil)
-(defparameter *last-published-marker-index* nil)
+(defvar *sherpa-location-costmap-publisher* nil)
+(defvar *sherpa-marker-publisher* nil)
+(defparameter *sherpa-last-published-marker-index* nil)
 
 (defun costmap-marker-pub-init ()
-  (setf *location-costmap-publisher*
+  (setf *sherpa-location-costmap-publisher*
         (roslisp:advertise "visualization_marker_array" "visualization_msgs/MarkerArray"))
-  (setf *marker-publisher*
+  (setf *sherpa-marker-publisher*
         (roslisp:advertise "visualization_marker" "visualization_msgs/Marker")))
 
 (roslisp-utilities:register-ros-init-function costmap-marker-pub-init)
@@ -35,17 +35,18 @@
                                                'visualization_msgs-msg:marker
                                                :delete)))))
     (when removers
-      (roslisp:publish *location-costmap-publisher*
+      (roslisp:publish *sherpa-location-costmap-publisher*
                        (roslisp:make-message
                         "visualization_msgs/MarkerArray"
                         (visualization_msgs-msg:markers)
                         (map 'vector #'identity removers))))))
 
 (defmethod location-costmap:on-visualize-costmap sherpa ((map location-costmap:location-costmap))
-  (publish-location-costmap map :threshold 0.0005))
+  (sherpa-publish-location-costmap map :threshold 0.0005))
 
-(defun publish-location-costmap (map &key (frame-id cram-tf:*fixed-frame*) (threshold 0.0005))
-  (when *location-costmap-publisher*
+(defun sherpa-publish-location-costmap (map &key (frame-id cram-tf:*fixed-frame*)
+                                              (threshold 0.0005))
+  (when *sherpa-location-costmap-publisher*
     (multiple-value-bind (markers last-index)
         (location-costmap::location-costmap->marker-array
          map :frame-id frame-id
@@ -53,10 +54,10 @@
              :z (slot-value map 'location-costmap:visualization-z)
              :hsv-colormap t
              :elevate-costmap nil)
-      (when *last-published-marker-index*
-        (remove-markers-up-to-index *last-published-marker-index*))
-      (setf *last-published-marker-index* last-index)
-      (roslisp:publish *location-costmap-publisher* markers))))
+      (when *sherpa-last-published-marker-index*
+        (remove-markers-up-to-index *sherpa-last-published-marker-index*))
+      (setf *sherpa-last-published-marker-index* last-index)
+      (roslisp:publish *sherpa-location-costmap-publisher* markers))))
 
 (defun json-call-dim (name)
   (if(json-prolog:check-connection)
@@ -87,13 +88,13 @@
                                                  (float (fifth liste))))))))
   pose)) 
                                              
-(defun get-pose-by-call()
-  (roslisp:wait-for-service "add_costmap_name" 10)
-  (json-call-pose (slot-value (roslisp:call-service "add_costmap_name" 'hmi_interpreter-srv:text_parser :goal "get") 'hmi_interpreter-srv:result)))
+;; (defun get-pose-by-call()
+;;   (roslisp:wait-for-service "add_costmap_name" 10)
+;;   (json-call-pose (slot-value (roslisp:call-service "add_costmap_name" 'hmi_interpreter-srv:text_parser :goal "get") 'hmi_interpreter-srv:result)))
 
-(defun get-dim-by-call()
-  (roslisp:wait-for-service "add_costmap_name" 10)
-  (json-call-dim (slot-value (roslisp:call-service "add_costmap_name" 'hmi_interpreter-srv:text_parser :goal "get") 'hmi_interpreter-srv:result)))
+;; (defun get-dim-by-call()
+;;   (roslisp:wait-for-service "add_costmap_name" 10)
+;;   (json-call-dim (slot-value (roslisp:call-service "add_costmap_name" 'hmi_interpreter-srv:text_parser :goal "get") 'hmi_interpreter-srv:result)))
 
 
 (defun sherpa-metadata (objname)
