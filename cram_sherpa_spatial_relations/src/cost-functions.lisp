@@ -34,8 +34,8 @@ list of SEM-MAP-UTILS:SEMANTIC-MAP-GEOMs"
     (setf pub (cl-tf:set-transform *tf* (cl-transforms-stamped:make-transform-stamped "map" elemname (roslisp:ros-time) (cl-transforms:origin pose) (cl-transforms:orientation pose))))
     (cl-transforms-stamped:transform->pose (cl-tf:lookup-transform *tf* viewpoint elemname))))
 
-
 (defun make-geom-object (objname)
+  (setf cram-tf:*fixed-frame* "map")
   (let((pose (json-call-pose objname))
        (dim (json-call-dim objname))
        (type (get-elem-type objname)))
@@ -74,18 +74,17 @@ list of SEM-MAP-UTILS:SEMANTIC-MAP-GEOMs"
                    (setf type "Helipad")))              
    type))
 
-(defun make-spatial-relations-cost-function (location axis pred threshold);; viewpoint)
-  ;; (if (not (string-equal "busy_genius" viewpoint))
-  ;;     (setf viewpoint (format nil "~a/base_link" viewpoint)))
-  ;; (format t "busy_genius ~a~%" viewpoint)
-  ;; (setf cram-tf:*fixed-frame* viewpoint)
+(defun make-spatial-relations-cost-function (location axis pred threshold viewpoint)
+  (format t "location is ~a~%" location)
+   (if (not (string-equal "busy_genius" viewpoint))
+       (setf viewpoint (format nil "~a/base_link" viewpoint)))
+  (setf cram-tf:*fixed-frame* viewpoint)
   (roslisp:ros-info (sherpa-spatial-relations) "calculate the costmap")
   (let* ((new-loc (cl-transforms:make-pose
                    (cl-transforms:origin location)
                    (cl-transforms:make-identity-rotation)))
          (transformation (cl-transforms:pose->transform new-loc)) 
          (world->location-transformation (cl-transforms:transform-inv transformation)))
-    (format t "new-loc ~a~%" new-loc)
     (lambda (x y)
       (let* ((point (cl-transforms:transform-point world->location-transformation
                                                    (cl-transforms:make-3d-vector x y 0)))
@@ -99,7 +98,6 @@ list of SEM-MAP-UTILS:SEMANTIC-MAP-GEOMs"
                 (abs (/ coord mode))
                 0.0d0)
             0.0d0)))))
-
 
 (roslisp-utilities:register-ros-init-function init-tf)
 

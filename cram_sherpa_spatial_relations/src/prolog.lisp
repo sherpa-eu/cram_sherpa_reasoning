@@ -60,6 +60,7 @@
       (roslisp:publish *sherpa-location-costmap-publisher* markers))))
 
 (defun json-call-dim (name)
+ 
   (if(json-prolog:check-connection)
      (let*((newname (concatenate 'string "http://knowrob.org/kb/unreal_log.owl#" name))
            (liste (cram-utilities:lazy-car
@@ -87,35 +88,31 @@
                                                  (float (eighth liste))
                                                  (float (fifth liste))))))))
   pose)) 
-                                             
-;; (defun get-pose-by-call()
-;;   (roslisp:wait-for-service "add_costmap_name" 10)
-;;   (json-call-pose (slot-value (roslisp:call-service "add_costmap_name" 'hmi_interpreter-srv:text_parser :goal "get") 'hmi_interpreter-srv:result)))
-
-;; (defun get-dim-by-call()
-;;   (roslisp:wait-for-service "add_costmap_name" 10)
-;;   (json-call-dim (slot-value (roslisp:call-service "add_costmap_name" 'hmi_interpreter-srv:text_parser :goal "get") 'hmi_interpreter-srv:result)))
-
-
-(defun sherpa-metadata (objname)
-  (let((pose (json-call-pose objname))
-       (dim (json-call-dim objname)))
-     (format t "sherpa-metadata pose ~a dim ~a~%" pose dim)
+  
+(defun sherpa-metadata (objname relation)
+  (let((pose NIL)
+       (dim NIL))
+    (if(string-equal "ontop" relation)
+       (setf pose (json-call-pose objname)) 
+       (setf pose (get-elem-depend-agent-pose objname)))
+    (setf dim (json-call-dim objname))
+    (format t "~a und ~a~%" pose dim)
     (list :width (+ 4 (cl-transforms:x dim))
           :height (+ 4 (cl-transforms:y dim))
           :resolution 0.8
           :origin-x (- (cl-transforms:x
-                     (cl-transforms:origin pose)) 2 (/ (cl-transforms:x dim) 2))
+                        (cl-transforms:origin pose)) 2 (/ (cl-transforms:x dim) 2))
           :origin-y (- (cl-transforms:y
-                      (cl-transforms:origin pose)) 2 (/ (cl-transforms:y dim) 2))
+                        (cl-transforms:origin pose)) 2 (/ (cl-transforms:y dim) 2))
           :visualization-z (+ 5 (/ (cl-transforms:z dim) 2) (cl-transforms:z (cl-transforms:origin pose))))))
  
-(def-prolog-handler sherpa-costmap (bdgs ?objname ?cm)
+(def-prolog-handler sherpa-costmap (bdgs ?objname ?relation ?cm)
   (list
    (if (or (not bdgs) (is-var (var-value ?cm bdgs)))
        (add-bdg (var-value ?cm bdgs)
                 (apply #'make-instance 'location-costmap
-                       (sherpa-metadata (cut:var-value ?objname bdgs)))
+                       (sherpa-metadata (cut:var-value ?objname bdgs)
+                                        (cut:var-value ?relation bdgs)))
                 bdgs)
        (when (typep (var-value ?cm bdgs) 'location-costmap)
          bdgs))))
@@ -124,7 +121,6 @@
 
 (def-fact-group sherpa-reasoning-costmap (desig-costmap)
   (<- (desig-costmap ?desig ?costmap)
-    (format "inside hier~%")
     (or (desig-prop ?desig (:next-to ?objname))
         (desig-prop ?desig (:around ?objname))
         (desig-prop ?desig (:behind ?objname))
@@ -134,12 +130,14 @@
         (desig-prop ?desig (:ontop ?objname))
         (desig-prop ?desig (:left ?objname))
         (desig-prop ?desig (:left-of ?objname)))
-    (sherpa-costmap ?objname ?costmap)
+    (desig-prop ?desig  (?relation ?objname))
+    (sherpa-costmap ?objname ?relation ?costmap)
     (prepositions ?desig ?costmap))
 
 ;;TODO: left, right from human perspective, and cut out bounding box  
   (<- (prepositions ?desig ?costmap)
     (desig-prop ?desig (:ontop ?objname))
+    (desig-prop ?desig (:viewpoint ?viewpoint))
     (lisp-fun make-geom-object ?objname ?geom)
     (costmap-add-function reasoning-generator
                           (make-semantic-map-costmap ?geom)
@@ -149,42 +147,42 @@
      (or (desig-prop ?desig (:right ?objname))
          (desig-prop ?desig (:right-of ?objname)))
      (desig-prop ?desig (:viewpoint ?viewpoint))
-     (lisp-fun json-call-pose ?objname ?objpose)
+     (lisp-fun get-elem-depend-agent-pose ?objname ?viewpoint ?objpose)
      (instance-of reasoning-generator ?reasoning-generator-id)
      (costmap-add-function
       ?reasoning-generator-id
-      (make-spatial-relations-cost-function ?objpose :Y > 0.0 ?viewpoint)
+      (make-spatial-relations-cost-function ?objpose :Y < 0.0 ?viewpoint)
       ?costmap))
     
    (<- (prepositions ?desig ?costmap)
      (or (desig-prop ?desig (:left ?objname))
          (desig-prop ?desig (:left-of ?objname)))
      (desig-prop ?desig (:viewpoint ?viewpoint))
-     (lisp-fun json-call-pose ?objname ?objpose)
+     (lisp-fun get-elem-depend-agent-pose ?objname ?viewpoint ?objpose)
      (instance-of reasoning-generator ?reasoning-generator-id)
      (costmap-add-function
       ?reasoning-generator-id
-      (make-spatial-relations-cost-function ?objpose :Y < 0.0 ?viewpoint)
+      (make-spatial-relations-cost-function ?objpose :Y > 0.5 ?viewpoint)
       ?costmap))
 
   (<- (prepositions ?desig ?costmap)
     (desig-prop ?desig (:behind ?objname))
     (desig-prop ?desig (:viewpoint ?viewpoint))
-    (lisp-fun json-call-pose ?objname ?objpose)
+    (lisp-fun get-elem-depend-agent-pose ?objname ?viewpoint ?objpose)
     (instance-of reasoning-generator ?reasoning-generator-id)
     (costmap-add-function
      ?reasoning-generator-id
-     (make-spatial-relations-cost-function ?objpose :X < 0.9 ?viewpoint)
+     (make-spatial-relations-cost-function ?objpose :X > 0.0 ?viewpoint)
      ?costmap))
 
-    (<- (prepositions ?desig ?costmap)
+  (<- (prepositions ?desig ?costmap)
     (desig-prop ?desig (:in-front-of ?objname))
     (desig-prop ?desig (:viewpoint ?viewpoint))
-    (lisp-fun json-call-pose ?objname ?objpose)
+    (lisp-fun get-elem-depend-agent-pose ?objname ?viewpoint ?objpose)
     (instance-of reasoning-generator ?reasoning-generator-id)
     (costmap-add-function
      ?reasoning-generator-id
-     (make-spatial-relations-cost-function ?objpose :X > 0.9 ?viewpoint)
+     (make-spatial-relations-cost-function ?objpose :X < 0.0 ?viewpoint)
      ?costmap))
   
 
