@@ -92,13 +92,13 @@
 (defun sherpa-metadata (objname)
   (let((pose (json-call-pose objname))
        (dim (json-call-dim objname)))
-    (list :width (+ 8 (cl-transforms:x dim))
-          :height (+ 8 (cl-transforms:y dim))
+    (list :width (+ 4 (cl-transforms:x dim))
+          :height (+ 4 (cl-transforms:y dim))
           :resolution 0.8
           :origin-x (- (cl-transforms:x
-                        (cl-transforms:origin pose)) 4 (/ (cl-transforms:x dim) 2))
+                        (cl-transforms:origin pose)) 2 (/ (cl-transforms:x dim) 2))
           :origin-y (- (cl-transforms:y
-                        (cl-transforms:origin pose)) 4 (/ (cl-transforms:y dim) 2))
+                        (cl-transforms:origin pose)) 2 (/ (cl-transforms:y dim) 2))
           :visualization-z (+ 5 (/ (cl-transforms:z dim) 2) (cl-transforms:z (cl-transforms:origin pose))))))
  
 (def-prolog-handler sherpa-costmap (bdgs ?objname ?cm)
@@ -118,7 +118,7 @@
     (or (desig-prop ?desig (:next-to ?objname))
         (desig-prop ?desig (:around ?objname))
         (desig-prop ?desig (:behind ?objname))
-        (desig-prop ?desig (:in-front-of ?objname))
+        (desig-prop ?desig (:front ?objname))
         (desig-prop ?desig (:right ?objname))
         (desig-prop ?desig (:right-of ?objname))
         (desig-prop ?desig (:ontop ?objname))
@@ -127,7 +127,6 @@
     (sherpa-costmap ?objname ?costmap)
     (prepositions ?desig ?costmap))
 
-;;TODO: left, right from human perspective, and cut out bounding box  
   (<- (prepositions ?desig ?costmap)
     (desig-prop ?desig (:ontop ?objname))
     (desig-prop ?desig (:viewpoint ?viewpoint))
@@ -169,7 +168,7 @@
      ?costmap))
 
   (<- (prepositions ?desig ?costmap)
-    (desig-prop ?desig (:in-front-of ?objname))
+    (desig-prop ?desig (:front ?objname))
     (desig-prop ?desig (:viewpoint ?viewpoint))
     (lisp-fun json-call-pose ?objname ?objpose)
     (instance-of reasoning-generator ?reasoning-generator-id)

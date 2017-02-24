@@ -5,11 +5,9 @@
 
 (defun init-tf ()
   (setf *tf* (make-instance 'cl-tf:transform-listener))
-  (setf *pub* (cl-tf:make-transform-broadcaster))
-  )
+  (setf *pub* (cl-tf:make-transform-broadcaster)))
 
 (defun make-location-function (loc std-dev)
-  (setf cram-tf:*fixed-frame* "map")
   (let ((loc (cl-transforms:origin loc)))
     (make-gauss-cost-function loc `((,(float (* std-dev std-dev) 0.0d0) 0.0d0)
                                     (0.0d0 ,(float (* std-dev std-dev)))))))
@@ -32,6 +30,7 @@ list of SEM-MAP-UTILS:SEMANTIC-MAP-GEOMs"
   "Generates a semantic-map costmap for all `objects'. `objects' is a
 list of SEM-MAP-UTILS:SEMANTIC-MAP-GEOMs"
   (setf objects (list objects))
+  (format t "objects ~a~%" objects)
   (let((costmap-generators (mapcar (lambda (object)
                                       (make-semantic-map-object-costmap-cut-generator
                                        object :padding 0.0))
@@ -57,8 +56,8 @@ list of SEM-MAP-UTILS:SEMANTIC-MAP-GEOMs"
   (declare (type sem-map-utils:semantic-map-geom object))
  ;; (format t "object is ~a~%"  (cl-transforms:pose->transform  (cl-transforms:make-pose (cl-transforms:origin (get-human-elem-pose (sem-map-utils:name object))) (cl-transforms:make-identity-rotation))))
   (let* ((transform (cl-transforms:pose->transform  (cl-transforms:make-pose (cl-transforms:origin (json-call-pose (sem-map-utils:name object)))
- (cl-transforms:orientation (json-call-pose (sem-map-utils:name object))))))
-                                                                            ;; (cl-transforms:make-identity-rotation))))
+ ;;(cl-transforms:orientation (json-call-pose (sem-map-utils:name object))))))
+    (cl-transforms:make-identity-rotation))))
          (dimensions (cl-transforms:v+
                       (sem-map-utils:dimensions object)
                       (cl-transforms:make-3d-vector padding padding padding)))
@@ -116,7 +115,9 @@ list of SEM-MAP-UTILS:SEMANTIC-MAP-GEOMs"
   (let((pose (json-call-pose objname))
        (dim (json-call-dim objname))
        (type (get-elem-type objname)))
-  (cram-semantic-map-utils::make-instance
+    (setf pose (cl-transforms:make-pose (cl-transforms:origin pose)
+                                        (cl-transforms:make-identity-rotation)))
+    (cram-semantic-map-utils::make-instance
      'cram-semantic-map-utils:semantic-map-geom
      :type type
      :name objname
@@ -124,59 +125,54 @@ list of SEM-MAP-UTILS:SEMANTIC-MAP-GEOMs"
      :owl-name "owl-ei-daunt-nau"
      :urdf-link-name "urdf-ei-daunt-nau-either"
      :pose pose)))
-    
+
 (defun get-elem-type (name)
- (let*((type NIL))
-       (cond ((or (search "tree" name)
-                  (search "Tree" name))
-              (setf type "tree"))
-             ((or (search "rock" name)
-                  (search "Rock" name))
-                   (setf type "rock"))
-             ((or (search "lake" name)
-                  (search "Lake" name))
-              (setf type "lake"))
-             ((or (search "tunnel" name)
-                  (search "Tunnel" name))
-                   (setf type "tunnel"))
-                  ((or (search "cottage" name)
-                       (search "Cottage" name))
-                   (setf type "cottage"))
-                  ((or (search "bridge" name)
-                       (search "Bridge" name))
-                   (setf type "bridge"))
-                  ((search "pylon" name)
-                   (setf type "pylon"))
-                  ((search "Helipad" name)
-                   (setf type "Helipad")))              
-   type))
+  (let*((type NIL))
+    (cond ((or (search "tree" name)
+               (search "Tree" name))
+           (setf type "tree"))
+          ((or (search "rock" name)
+               (search "Rock" name))
+           (setf type "rock"))
+          ((or (search "lake" name)
+               (search "Lake" name))
+           (setf type "lake"))
+          ((or (search "tunnel" name)
+               (search "Tunnel" name))
+           (setf type "tunnel"))
+          ((or (search "cottage" name)
+               (search "Cottage" name))
+           (setf type "cottage"))
+          ((or (search "bridge" name)
+               (search "Bridge" name))
+           (setf type "bridge"))
+          ((search "elipad" name)
+           (setf type "Helipad")))              
+    type))
 
 (defun make-spatial-relations-cost-function (location  axis pred threshold viewpoint)
-  (format t "location is ~a~%" location)
   (if (not (string-equal "busy_genius" viewpoint))
        (setf viewpoint (format nil "~a/base_link" viewpoint)))
   (roslisp:ros-info (sherpa-spatial-relations) "calculate the costmap")
-  (setf ori (cl-transforms:orientation (cl-transforms:transform->pose (cl-tf:lookup-transform cram-sherpa-spatial-relations::*tf*  "map" viewpoint))))
-  (let* ((new-loc (cl-transforms:make-pose
-                   (cl-transforms:origin location)
-                   ori))
-                   ;;(cl-transforms:make-identity-rotation)))
-         (transformation (cl-transforms:pose->transform new-loc)) 
-         (world->location-transformation (cl-transforms:transform-inv transformation)))
-    (format t "new-loc ~a~%" transformation)
-    (lambda (x y)
-      (let* ((point (cl-transforms:transform-point world->location-transformation
-                                                   (cl-transforms:make-3d-vector x y 0)))
-             (coord (ecase axis
-                      (:x (cl-transforms:x point))
-                      (:y (cl-transforms:y point))))
-             (mode (sqrt (+   (* (cl-transforms:x point) (cl-transforms:x point))
-                              (* (cl-transforms:y point) (cl-transforms:y point))))))
-        (if (funcall pred coord 0.0d0)
-            (if (> (abs (/ coord mode)) threshold)
-                (abs (/ coord mode))
-                0.0d0)
-            0.0d0)))))
+  (let((ori (cl-transforms:orientation (cl-transforms:transform->pose (cl-tf:lookup-transform cram-sherpa-spatial-relations::*tf*  "map" viewpoint)))))
+       (let* ((new-loc (cl-transforms:make-pose
+                        (cl-transforms:origin location)
+                        ori))
+              (transformation (cl-transforms:pose->transform new-loc)) 
+              (world->location-transformation (cl-transforms:transform-inv transformation)))
+         (lambda (x y)
+           (let* ((point (cl-transforms:transform-point world->location-transformation
+                                                        (cl-transforms:make-3d-vector x y 0)))
+                  (coord (ecase axis
+                           (:x (cl-transforms:x point))
+                           (:y (cl-transforms:y point))))
+                  (mode (sqrt (+   (* (cl-transforms:x point) (cl-transforms:x point))
+                                   (* (cl-transforms:y point) (cl-transforms:y point))))))
+             (if (funcall pred coord 0.0d0)
+                 (if (> (abs (/ coord mode)) threshold)
+                     (abs (/ coord mode))
+                     0.0d0)
+                 0.0d0))))))
 
 (roslisp-utilities:register-ros-init-function init-tf)
 
