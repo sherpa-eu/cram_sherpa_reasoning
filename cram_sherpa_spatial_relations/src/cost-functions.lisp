@@ -12,18 +12,165 @@
     (make-gauss-cost-function loc `((,(float (* std-dev std-dev) 0.0d0) 0.0d0)
                                     (0.0d0 ,(float (* std-dev std-dev)))))))
 
-(defun make-constant-height-function (dim objpose height)
-    (setf height  (+ (+ (cl-transforms:z (cl-transforms:origin objpose))
-                        (cl-transforms:z dim)) 1))
-    (lambda (x y)
-      (declare (ignore x y))
-      (list height)))
+;; (defun sherpa-make-constant-height-function (dim objpose height)
+;;     (setf height  (+ (+ (cl-transforms:z (cl-transforms:origin objpose))
+;;                         (cl-transforms:z dim)) 1))
+;;     (lambda (x y)
+;;       (declare (ignore x y))
+;;       (list height)))
+
+
+(defun get-aabb (&rest points)
+  (loop for p in points
+        for x = (cl-transforms:x p)
+        for y = (cl-transforms:y p)
+        for z = (cl-transforms:z p)
+        minimizing x into min-x
+        maximizing x into max-x
+        minimizing y into min-y
+        maximizing y into max-y
+        minimizing z into min-z
+        maximizing z into max-z
+        finally
+     (return (list (cl-transforms:make-3d-vector min-x min-y min-z)
+                   (cl-transforms:make-3d-vector max-x max-y max-z)))))
+
+(declaim (inline inside-aabb))
+(defun inside-aabb (min max pt)
+  "Checks if `pt' lies in the axis-alligned bounding box specified by
+  the two points `min' and `max'"
+  (let ((x (cl-transforms:x pt))
+        (y (cl-transforms:y pt))
+        (z (cl-transforms:z pt)))
+    (declare (type double-float x y z))
+    (and (>= x (cl-transforms:x min))
+         (<= x (cl-transforms:x max))
+         (>= y (cl-transforms:y min))
+         (<= y (cl-transforms:y max))
+         (>= z (cl-transforms:z min))
+         (<= z (cl-transforms:z max)))))
+
+(defun 2d-object-bb (dimensions &optional pose)
+  "Returns the 2-dimensional aabb of a semantic-map object"
+  (let* ((transform (when pose (cl-transforms:reference-transform pose)))
+         (dimensions/2 (cl-transforms:v* dimensions 0.5))
+         (bb-pts (list (cl-transforms:v* dimensions/2 -1)
+                       dimensions/2)))
+    (apply
+     #'get-aabb
+     (if transform
+         (mapcar (lambda (pt)
+                   (cl-transforms:transform-point transform pt))
+                 bb-pts)
+         bb-pts))))
+
+
+
+(defun make-semantic-map-object-costmap-generator (object &key (padding 0.0))
+  (declare (type sem-map-utils:semantic-map-geom object))
+  (let* ((transform (cl-transforms:pose->transform (sem-map-utils:pose object)))
+         (dimensions (cl-transforms:v+
+                      (sem-map-utils:dimensions object)
+                      (cl-transforms:make-3d-vector padding padding padding)))
+         (pt->obj-transform (cl-transforms:transform-inv transform))
+         ;; Since our map is 2d we need to select a z value for our
+         ;; point. We just use the pose's z value since it should be
+         ;; inside the object.
+         (z-value (cl-transforms:z (cl-transforms:translation transform))))
+    (destructuring-bind ((obj-min obj-max)
+                         (local-min local-max))
+        (list (2d-object-bb dimensions transform)
+              (2d-object-bb dimensions))
+      (flet ((generator-function (costmap-metadata result)
+               (with-slots (origin-x origin-y resolution) costmap-metadata
+                 ;; For performance reasons, we first check if the point is
+                 ;; inside the object's bounding box in map and then check if it
+                 ;; really is inside the object.
+                 (let ((min-index-x (location-costmap:map-coordinate->array-index
+                                     (cl-transforms:x obj-min)
+                                     resolution origin-x))
+                       (max-index-x (location-costmap:map-coordinate->array-index
+                                     (cl-transforms:x obj-max)
+                                     resolution origin-x))
+                       (min-index-y (location-costmap:map-coordinate->array-index
+                                     (cl-transforms:y obj-min)
+                                     resolution origin-y))
+                       (max-index-y (location-costmap:map-coordinate->array-index
+                                     (cl-transforms:y obj-max)
+                                     resolution origin-y)))
+                   (loop for y-index from min-index-y to max-index-y
+                         for y from (- (cl-transforms:y obj-min) resolution)
+                           by resolution do
+                             (loop for x-index from min-index-x to max-index-x
+                                   for x from (- (cl-transforms:x obj-min) resolution)
+                                     by resolution do
+                                       (when (inside-aabb
+                                              local-min local-max
+                                              (cl-transforms:transform-point
+                                               pt->obj-transform
+                                               (cl-transforms:make-3d-vector
+                                                x y z-value)))
+                                         (setf (aref result y-index x-index) 1.0d0))))))
+               result))
+        #'generator-function))))
+
+(defun make-semantic-map-object-costmap-cut-generator (object &key (padding 0.0))
+  (declare (type sem-map-utils:semantic-map-geom object))
+  (let* ((transform (cl-transforms:pose->transform  (cl-transforms:make-pose (cl-transforms:origin (json-call-pose (sem-map-utils:name object)))
+ ;;(cl-transforms:orientation (json-call-pose (sem-map-utils:name object))))))
+   (cl-transforms:make-identity-rotation))))
+         (dimensions (cl-transforms:v+
+                      (sem-map-utils:dimensions object)
+                      (cl-transforms:make-3d-vector padding padding padding)))
+         (pt->obj-transform (cl-transforms:transform-inv transform))
+         ;; Since our map is 2d we need to select a z value for our
+         ;; point. We just use the pose's z value since it should be
+         ;; inside the object.
+         (z-value (cl-transforms:z (cl-transforms:translation transform))))
+    (destructuring-bind ((obj-min obj-max)
+                         (local-min local-max))
+        (list (2d-object-bb dimensions transform)
+              (2d-object-bb dimensions))
+      (flet ((generator-function (location-costmap:costmap-metadata result)
+               (with-slots (origin-x origin-y resolution) costmap-metadata
+                 ;; For performance reasons, we first check if the point is
+                 ;; inside the object's bounding box in map and then check if it
+                 ;; really is inside the object.
+                 (let ((min-index-x (map-coordinate->array-index
+                                     (cl-transforms:x obj-min)
+                                     resolution origin-x))
+                       (max-index-x (map-coordinate->array-index
+                                     (cl-transforms:x obj-max)
+                                     resolution origin-x))
+                       (min-index-y (map-coordinate->array-index
+                                     (cl-transforms:y obj-min)
+                                     resolution origin-y))
+                       (max-index-y (map-coordinate->array-index
+                                     (cl-transforms:y obj-max)
+                                     resolution origin-y)))
+                   (loop for y-index from min-index-y to max-index-y
+                         for y from (- (cl-transforms:y obj-min) resolution)
+                           by resolution do
+                             (loop for x-index from min-index-x to max-index-x
+                                   for x from (- (cl-transforms:x obj-min) resolution)
+                                     by resolution do
+                                       (when (inside-aabb
+                                              local-min local-max
+                                              (cl-transforms:transform-point
+                                               pt->obj-transform
+                                               (cl-transforms:make-3d-vector
+                                                x y z-value)))
+                                         (setf (aref result y-index x-index) 1.0d0))))))
+               result))
+        #'generator-function))))
+
+
 
 (defun make-semantic-map-costmap (object)
   "Generates a semantic-map costmap for all `objects'. `objects' is a
 list of SEM-MAP-UTILS:SEMANTIC-MAP-GEOMs"
   (make-instance 'map-costmap-generator
-    :generator-function (semantic-map-costmap::make-semantic-map-object-costmap-generator object)))
+    :generator-function (make-semantic-map-object-costmap-generator object)))
 
 
 (defun make-semantic-map-costmap-cut (objects &key invert)
@@ -49,57 +196,7 @@ list of SEM-MAP-UTILS:SEMANTIC-MAP-GEOMs"
         :generator-function (if invert
                                 (alexandria:compose #'invert-matrix #'generator)
                                 #'generator)))))
-    
 
-(defun make-semantic-map-object-costmap-cut-generator (object &key (padding 0.0))
-  (declare (type sem-map-utils:semantic-map-geom object))
-  (let* ((transform (cl-transforms:pose->transform  (cl-transforms:make-pose (cl-transforms:origin (json-call-pose (sem-map-utils:name object)))
- ;;(cl-transforms:orientation (json-call-pose (sem-map-utils:name object))))))
-   (cl-transforms:make-identity-rotation))))
-         (dimensions (cl-transforms:v+
-                      (sem-map-utils:dimensions object)
-                      (cl-transforms:make-3d-vector padding padding padding)))
-         (pt->obj-transform (cl-transforms:transform-inv transform))
-         ;; Since our map is 2d we need to select a z value for our
-         ;; point. We just use the pose's z value since it should be
-         ;; inside the object.
-         (z-value (cl-transforms:z (cl-transforms:translation transform))))
-    (destructuring-bind ((obj-min obj-max)
-                         (local-min local-max))
-        (list (semantic-map-costmap::2d-object-bb dimensions transform)
-              (semantic-map-costmap::2d-object-bb dimensions))
-      (flet ((generator-function (semantic-map-costmap::costmap-metadata result)
-               (with-slots (origin-x origin-y resolution) costmap-metadata
-                 ;; For performance reasons, we first check if the point is
-                 ;; inside the object's bounding box in map and then check if it
-                 ;; really is inside the object.
-                 (let ((min-index-x (map-coordinate->array-index
-                                     (cl-transforms:x obj-min)
-                                     resolution origin-x))
-                       (max-index-x (map-coordinate->array-index
-                                     (cl-transforms:x obj-max)
-                                     resolution origin-x))
-                       (min-index-y (map-coordinate->array-index
-                                     (cl-transforms:y obj-min)
-                                     resolution origin-y))
-                       (max-index-y (map-coordinate->array-index
-                                     (cl-transforms:y obj-max)
-                                     resolution origin-y)))
-                   (loop for y-index from min-index-y to max-index-y
-                         for y from (- (cl-transforms:y obj-min) resolution)
-                           by resolution do
-                             (loop for x-index from min-index-x to max-index-x
-                                   for x from (- (cl-transforms:x obj-min) resolution)
-                                     by resolution do
-                                       (when (semantic-map-costmap::inside-aabb
-                                              local-min local-max
-                                              (cl-transforms:transform-point
-                                               pt->obj-transform
-                                               (cl-transforms:make-3d-vector
-                                                x y z-value)))
-                                         (setf (aref result y-index x-index) 1.0d0))))))
-               result))
-        #'generator-function))))
 
 (defun get-elem-depend-agent-pose (elemname &optional (viewpoint "busy_genius"))
   (let*((pose (json-call-pose elemname))
