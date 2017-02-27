@@ -21,7 +21,7 @@
   (setf *sherpa-marker-publisher*
         (roslisp:advertise "visualization_marker" "visualization_msgs/Marker")))
 
-;; (roslisp-utilities:register-ros-init-function costmap-marker-pub-init)
+(roslisp-utilities:register-ros-init-function costmap-marker-pub-init)
 
 (defun remove-markers-up-to-index (index)
   (let ((removers
