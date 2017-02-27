@@ -60,16 +60,15 @@
       (roslisp:publish *sherpa-location-costmap-publisher* markers))))
 
 (defun json-call-dim (name)
- 
   (if(json-prolog:check-connection)
      (let*((newname (concatenate 'string "http://knowrob.org/kb/unreal_log.owl#" name))
            (liste (cram-utilities:lazy-car
                     (json-prolog:prolog
                      `("object_dimensions" ,newname ?d ?w ?h)))))
- (cl-transforms:make-3d-vector (float (cdr (third liste)))
-                                   (float (cdr (first liste)))
-                                   (float (cdr (second liste)))))))
-     
+ (cl-transforms:make-3d-vector (float (cdr (third liste))) ;;third
+                                   (float (cdr (first liste))) ;;first
+                                   (float (cdr (second liste))))))) ;;second
+
 (defun json-call-pose (name)
 (let((pose NIL))
   (if(json-prolog:check-connection)
@@ -155,7 +154,12 @@
      (costmap-add-function
       ?reasoning-generator-id
       (make-spatial-relations-cost-function ?objpose :Y > 0.0 ?viewpoint)
-      ?costmap))
+      ?costmap)
+     (instance-of gaussian-generator ?gaussian-generator-id)
+     (costmap-add-function ?gaussian-generator-id
+                           (make-location-cost-function ?objpose  2.5)
+                           ?costmap))
+ 
   
   (<- (prepositions ?desig ?costmap)
     (desig-prop ?desig (:behind ?objname))

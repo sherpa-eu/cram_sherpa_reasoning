@@ -29,9 +29,8 @@ list of SEM-MAP-UTILS:SEMANTIC-MAP-GEOMs"
 (defun make-semantic-map-costmap-cut (objects &key invert)
   "Generates a semantic-map costmap for all `objects'. `objects' is a
 list of SEM-MAP-UTILS:SEMANTIC-MAP-GEOMs"
-  (setf objects (list objects))
-  (format t "objects ~a~%" objects)
-  (let((costmap-generators (mapcar (lambda (object)
+  (let*((objects (list objects))
+        (costmap-generators (mapcar (lambda (object)
                                       (make-semantic-map-object-costmap-cut-generator
                                        object :padding 0.0))
                                     (cut:force-ll objects))))
@@ -54,10 +53,9 @@ list of SEM-MAP-UTILS:SEMANTIC-MAP-GEOMs"
 
 (defun make-semantic-map-object-costmap-cut-generator (object &key (padding 0.0))
   (declare (type sem-map-utils:semantic-map-geom object))
- ;; (format t "object is ~a~%"  (cl-transforms:pose->transform  (cl-transforms:make-pose (cl-transforms:origin (get-human-elem-pose (sem-map-utils:name object))) (cl-transforms:make-identity-rotation))))
   (let* ((transform (cl-transforms:pose->transform  (cl-transforms:make-pose (cl-transforms:origin (json-call-pose (sem-map-utils:name object)))
  ;;(cl-transforms:orientation (json-call-pose (sem-map-utils:name object))))))
-    (cl-transforms:make-identity-rotation))))
+   (cl-transforms:make-identity-rotation))))
          (dimensions (cl-transforms:v+
                       (sem-map-utils:dimensions object)
                       (cl-transforms:make-3d-vector padding padding padding)))
@@ -115,7 +113,7 @@ list of SEM-MAP-UTILS:SEMANTIC-MAP-GEOMs"
   (let((pose (json-call-pose objname))
        (dim (json-call-dim objname))
        (type (get-elem-type objname)))
-    (setf pose (cl-transforms:make-pose (cl-transforms:origin pose)
+   (setf pose (cl-transforms:make-pose (cl-transforms:origin pose)
                                         (cl-transforms:make-identity-rotation)))
     (cram-semantic-map-utils::make-instance
      'cram-semantic-map-utils:semantic-map-geom
