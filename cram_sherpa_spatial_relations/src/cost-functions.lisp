@@ -1,11 +1,11 @@
 (in-package :cram-sherpa-spatial-relations)
 
-(defvar *tf* NIL)
-(defvar *pub* NIL)
+;(defvar *tf* NIL)
+;(defvar *pub* NIL)
 
-(defun init-tf ()
-  (setf *tf* (make-instance 'cl-tf:transform-listener))
-  (setf *pub* (cl-tf:make-transform-broadcaster)))
+;; (defun init-tf ()
+;;   (setf *tf* (make-instance 'cl-tf:transform-listener))
+;;   (setf *pub* (cl-tf:make-transform-broadcaster)))
 
 (defun make-location-function (loc std-dev)
   (let ((loc (cl-transforms:origin loc)))
@@ -106,8 +106,8 @@ list of SEM-MAP-UTILS:SEMANTIC-MAP-GEOMs"
         (pub NIL))
     (if (not (string-equal viewpoint "busy_genius"))
         (setf viewpoint (format NIL "~a/base_link" viewpoint)))
-    (setf pub (cl-tf:set-transform *tf* (cl-transforms-stamped:make-transform-stamped "map" elemname (roslisp:ros-time) (cl-transforms:origin pose) (cl-transforms:orientation pose))))
-    (cl-transforms-stamped:transform->pose (cl-tf:lookup-transform *tf* viewpoint elemname))))
+    (setf pub (cl-tf:set-transform cram-tf:*transformer* (cl-transforms-stamped:make-transform-stamped "map" elemname (roslisp:ros-time) (cl-transforms:origin pose) (cl-transforms:orientation pose))))
+    (cl-transforms-stamped:transform->pose (cl-tf:lookup-transform cram-tf:*transformer* viewpoint elemname))))
 
 (defun make-geom-object (objname)
   (let((pose (json-call-pose objname))
@@ -152,7 +152,7 @@ list of SEM-MAP-UTILS:SEMANTIC-MAP-GEOMs"
   (if (not (string-equal "busy_genius" viewpoint))
        (setf viewpoint (format nil "~a/base_link" viewpoint)))
   (roslisp:ros-info (sherpa-spatial-relations) "calculate the costmap")
-  (let((ori (cl-transforms:orientation (cl-transforms:transform->pose (cl-tf:lookup-transform cram-sherpa-spatial-relations::*tf*  "map" viewpoint)))))
+  (let((ori (cl-transforms:orientation (cl-transforms:transform->pose (cl-tf:lookup-transform cram-tf::*transformer*  "map" viewpoint)))))
        (let* ((new-loc (cl-transforms:make-pose
                         (cl-transforms:origin location)
                         ori))
@@ -172,5 +172,5 @@ list of SEM-MAP-UTILS:SEMANTIC-MAP-GEOMs"
                      0.0d0)
                  0.0d0))))))
 
-(roslisp-utilities:register-ros-init-function init-tf)
+;; (roslisp-utilities:register-ros-init-function init-tf)
 
