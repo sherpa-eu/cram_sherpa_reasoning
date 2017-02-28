@@ -5,7 +5,7 @@
                cram-location-costmap
                cram-prolog
                roslisp
-               cram-semantic-map-costmap
+               cram-semantic-map-utils
                cram-robot-pose-gaussian-costmap
                cl-tf
                cl-transforms
