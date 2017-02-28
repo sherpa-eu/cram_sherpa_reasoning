@@ -129,10 +129,23 @@
   (<- (prepositions ?desig ?costmap)
     (desig-prop ?desig (:ontop ?objname))
     (desig-prop ?desig (:viewpoint ?viewpoint))
+    (lisp-fun json-call-pose ?objname ?objpose)
+    (-> (lisp-pred string-equal "Helipad_6Rv1W" ?objname)
+        (prep-gauss ?desig ?costmap ?objpose)
+        (prep-loc ?desig ?costmap ?objname)))
+  
+  (<- (prep-gauss ?desig ?costmap ?objpose)
+    (instance-of gaussian-generator ?gaussian-generator-id)
+    (costmap-add-function ?gaussian-generator-id
+                          (make-location-cost-function ?objpose 0.4)
+                          ?costmap))
+
+  (<- (prep-loc ?desig ?costmap ?objname)
     (lisp-fun make-geom-object ?objname ?geom)
     (costmap-add-function reasoning-generator
                           (make-semantic-map-costmap ?geom)
                           ?costmap))
+ 
   
    (<- (prepositions ?desig ?costmap)
      (or (desig-prop ?desig (:right ?objname))
