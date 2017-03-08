@@ -54,8 +54,14 @@
   "Returns the 2-dimensional aabb of a semantic-map object"
   (let* ((transform (when pose (cl-transforms:reference-transform pose)))
          (dimensions/2 (cl-transforms:v* dimensions 0.5))
-         (bb-pts (list (cl-transforms:v* dimensions/2 -1)
-                       dimensions/2)))
+         (bb-pts (mapcar (lambda (v)
+                           (destructuring-bind (x y z) v
+                             (cl-transforms:make-3d-vector
+                              (* (cl-transforms:x dimensions/2) x)
+                              (* (cl-transforms:y dimensions/2) y)
+                              (* (cl-transforms:z dimensions/2) z))))
+                         '((-1 -1 -1) (-1 -1 1) (-1 1 -1) (-1 1 1)
+                           (1 -1 -1) (1 -1 1) (1 1 -1) (1 1 1)))))
     (apply
      #'get-aabb
      (if transform
@@ -210,8 +216,6 @@ list of SEM-MAP-UTILS:SEMANTIC-MAP-GEOMs"
   (let((pose (json-call-pose objname))
        (dim (json-call-dim objname))
        (type (get-elem-type objname)))
-   (setf pose (cl-transforms:make-pose (cl-transforms:origin pose)
-                                        (cl-transforms:make-identity-rotation)))
     (cram-semantic-map-utils::make-instance
      'cram-semantic-map-utils:semantic-map-geom
      :type type
