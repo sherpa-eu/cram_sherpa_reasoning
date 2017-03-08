@@ -86,20 +86,23 @@
                                                  (float (seventh liste))
                                                  (float (eighth liste))
                                                  (float (fifth liste))))))))
-  pose)) 
-  
+  pose))
+
 (defun sherpa-metadata (objname)
-  (let((pose (json-call-pose objname))
-       (dim (json-call-dim objname)))
-    (list :width (+ 4 (cl-transforms:x dim))
-          :height (+ 4 (cl-transforms:y dim))
+  (let* ((pose (json-call-pose objname))
+         (dim (json-call-dim objname))
+         (bb (2d-object-bb dim pose))
+         (costmap-dim (cl-transforms:v+
+                       (cl-transforms:v- (second bb) (first bb))
+                       (cl-transforms:make-3d-vector 4 4 0))))
+    (list :width (cl-transforms:x costmap-dim)
+          :height (cl-transforms:y costmap-dim)
           :resolution 0.8
-          :origin-x (- (cl-transforms:x
-                        (cl-transforms:origin pose)) 2 (/ (cl-transforms:x dim) 2))
-          :origin-y (- (cl-transforms:y
-                        (cl-transforms:origin pose)) 2 (/ (cl-transforms:y dim) 2))
-          :visualization-z (+ 5 (/ (cl-transforms:z dim) 2) (cl-transforms:z (cl-transforms:origin pose))))))
- 
+          :origin-x (- (cl-transforms:x (first bb)) 2)
+          :origin-y (- (cl-transforms:y (first bb)) 2)
+          :visualization-z (+ 5 (/ (cl-transforms:z dim) 2)
+                              (cl-transforms:z (cl-transforms:origin pose))))))
+
 (def-prolog-handler sherpa-costmap (bdgs ?objname ?cm)
   (list
    (if (or (not bdgs) (is-var (var-value ?cm bdgs)))
